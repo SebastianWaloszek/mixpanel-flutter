@@ -179,8 +179,14 @@ class MixpanelSessionReplayPlugin : FlutterPlugin, MethodCallHandler {
                     cachedBitmap = bitmap
                 }
 
+                val outputBitmap = bitmap
+                if (outputBitmap == null) {
+                    result.error("BITMAP_NULL", "Failed to obtain bitmap", null)
+                    return@execute
+                }
+
                 // Write pixels into reused bitmap (overwrites all pixels, no erase needed)
-                bitmap.setPixels(pixels, 0, width, 0, 0, width, height)
+                outputBitmap.setPixels(pixels, 0, width, 0, 0, width, height)
 
                 // Reuse output stream
                 var outputStream = cachedOutputStream
@@ -191,7 +197,7 @@ class MixpanelSessionReplayPlugin : FlutterPlugin, MethodCallHandler {
                     outputStream.reset()
                 }
 
-                bitmap.compress(Bitmap.CompressFormat.JPEG, quality, outputStream)
+                outputBitmap.compress(Bitmap.CompressFormat.JPEG, quality, outputStream)
 
                 // Bitmap stays cached for next capture — not recycled
                 result.success(outputStream.toByteArray())
