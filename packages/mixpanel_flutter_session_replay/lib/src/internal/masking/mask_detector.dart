@@ -189,16 +189,7 @@ class MaskDetector {
 
       if (isScrollable && renderObject is RenderBox && renderObject.hasSize) {
         try {
-          final viewportGlobalOffset = renderObject.localToGlobal(Offset.zero);
-          final boundaryGlobalOffset = boundary.localToGlobal(Offset.zero);
-          final viewportOffset = viewportGlobalOffset - boundaryGlobalOffset;
-
-          currentViewportBounds = Rect.fromLTWH(
-            viewportOffset.dx,
-            viewportOffset.dy,
-            renderObject.size.width,
-            renderObject.size.height,
-          );
+          currentViewportBounds = _boxBoundsInBoundary(renderObject, boundary);
         } catch (_) {
           // If we can't get coordinates, continue with null (assume visible)
         }
@@ -424,6 +415,21 @@ class MaskDetector {
     return false;
   }
 
+  /// The box's layout rect in [boundary] coordinates.
+  ///
+  /// Uses the full paint transform, the same way auto-masked nodes are
+  /// positioned, so rotation, scale and skew between the box and the boundary
+  /// are applied. Offsetting the box's untransformed size by its global origin
+  /// is only correct for pure translations: under a quarter-turn [RotatedBox]
+  /// it yields a rect with swapped extents anchored at the wrong corner, which
+  /// misplaces [MixpanelMask] regions and, for a scroll viewport, makes every
+  /// visible descendant look scrolled out of view so it is never masked.
+  Rect _boxBoundsInBoundary(RenderBox box, RenderRepaintBoundary boundary) =>
+      MatrixUtils.transformRect(
+        box.getTransformTo(boundary),
+        Offset.zero & box.size,
+      );
+
   /// Add an element's bounds to mask rects
   void _addElementToMaskRects(
     Element element,
@@ -434,12 +440,7 @@ class MaskDetector {
     final renderObject = element.renderObject;
     if (renderObject is RenderBox && renderObject.hasSize) {
       try {
-        // Use same coordinate calculation as auto-masking to handle ScrollView
-        final globalOffset = renderObject.localToGlobal(Offset.zero);
-        final boundaryGlobalOffset = boundary.localToGlobal(Offset.zero);
-        final offset = globalOffset - boundaryGlobalOffset;
-
-        final bounds = offset & renderObject.size;
+        final bounds = _boxBoundsInBoundary(renderObject, boundary);
 
         // Validate bounds are within boundary (same validation as auto-masking)
         final boundaryBounds = Rect.fromLTWH(
